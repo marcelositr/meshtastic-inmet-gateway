@@ -1,55 +1,55 @@
 # Meshtastic INMET Gateway
 
-Automated gateway for [Meshtastic](https://meshtastic.org/) that retrieves meteorological data from the [Brazilian National Institute of Meteorology (INMET)](https://www.gov.br/inmet/) and distributes alerts and forecasts through a Meshtastic LoRa network.
+Gateway de automação para [Meshtastic](https://meshtastic.org/) que consulta dados meteorológicos do [Instituto Nacional de Meteorologia (INMET)](https://www.gov.br/inmet/) e distribui alertas e previsões por uma rede Meshtastic utilizando LoRa.
 
-The project is initially configured for **Ituverava, São Paulo, Brazil**, using the municipality's IBGE code to identify the corresponding meteorological data.
+O projeto foi desenvolvido inicialmente para **Ituverava, São Paulo, Brasil**, utilizando o código IBGE do município para identificar os dados meteorológicos correspondentes.
 
-## Overview
+## Visão geral
 
-The gateway is designed to operate as an unattended service. A Linux host retrieves data from INMET, schedules the bulletins, and forwards them to a Meshtastic node for transmission over the LoRa mesh.
+O gateway foi projetado para operar de forma autônoma. Um host Linux consulta os dados do INMET, executa o agendamento dos boletins e encaminha as mensagens para um nó Meshtastic responsável pela transmissão na rede LoRa.
 
-### Current development architecture
+### Arquitetura atual de desenvolvimento
 
 ```text
 ┌──────────────┐
 │    INMET     │
-│  Web APIs    │
+│  APIs Web    │
 └──────┬───────┘
        │
        ▼
 ┌──────────────────────┐
-│ Python Gateway       │
+│ Gateway Python       │
 │                      │
-│ API integration      │
+│ Integração com API   │
 │ Scheduler            │
-│ Message preparation  │
+│ Preparação mensagens │
 └──────────┬───────────┘
            │
            ▼
 ┌──────────────────────┐
-│ Meshtastic Interface │
+│ Interface Meshtastic │
 └──────────┬───────────┘
            │
           LoRa
            │
            ▼
-     Meshtastic Mesh
+      Rede Meshtastic
 ```
 
-### Target deployment architecture
+### Arquitetura de implantação prevista
 
-The production deployment is planned around an always-on Linux hotspot and a **Heltec LoRa 32 V4** running Meshtastic.
+A implantação final está planejada para utilizar um hotspot Linux de operação contínua e uma **Heltec LoRa 32 V4** executando Meshtastic.
 
 ```text
                     Internet
                        │
                        ▼
 ┌─────────────────────────────────┐
-│ Linux Hotspot                    │
+│ Hotspot Linux                    │
 │                                 │
-│ Python Gateway                  │
+│ Gateway Python                  │
 │ Scheduler                       │
-│ INMET API integration           │
+│ Integração INMET                │
 └───────────────┬─────────────────┘
                 │
               Wi-Fi
@@ -63,40 +63,41 @@ The production deployment is planned around an always-on Linux hotspot and a **H
                LoRa
                 │
                 ▼
-          Meshtastic Mesh
+         Rede Meshtastic
 ```
 
-The planned Wi-Fi connection removes the need for a permanent USB connection between the Linux host and the Meshtastic radio.
+A comunicação planejada por Wi-Fi elimina a necessidade de uma conexão USB permanente entre o host Linux e o rádio Meshtastic.
 
-## Features
+## Funcionalidades
 
-- Integration with the official INMET APIs.
-- Municipality selection using the IBGE code.
-- Active meteorological alert retrieval.
-- Daily weather forecast retrieval.
-- Forecast bulletins for morning, afternoon, and night.
-- Independent messages for Meshtastic transmission.
-- Separate Meshtastic channels for alerts and forecasts.
-- Configurable transmission interval.
-- Configurable transmission retry mechanism.
-- Scheduled unattended operation.
-- Hardware-independent development through a Meshtastic simulator.
-- UTF-8 message size reporting in bytes and bits.
+- Integração com as APIs oficiais do INMET.
+- Identificação do município por código IBGE.
+- Consulta de alertas meteorológicos ativos.
+- Consulta da previsão meteorológica.
+- Boletins independentes para manhã, tarde e noite.
+- Separação dos dados em mensagens individuais para transmissão.
+- Canais Meshtastic distintos para alertas e previsões.
+- Intervalo configurável entre mensagens.
+- Sistema configurável de tentativas de transmissão.
+- Agendamento automático.
+- Operação sem intervenção durante o funcionamento normal.
+- Simulador Meshtastic para desenvolvimento sem hardware.
+- Exibição do tamanho das mensagens em bytes e bits.
 
-## Schedule
+## Agendamento
 
-The default scheduler configuration is:
+A configuração padrão do scheduler é:
 
-| Time | Bulletin | Channel |
-|------|----------|--------:|
-| 05:00 | INMET alerts | 1 |
-| 06:00 | Morning forecast | 2 |
-| 12:00 | Afternoon forecast | 2 |
-| 18:00 | Night forecast | 2 |
+| Horário | Conteúdo | Canal |
+|--------:|----------|------:|
+| 05:00 | Alertas INMET | 1 |
+| 06:00 | Previsão da manhã | 2 |
+| 12:00 | Previsão da tarde | 2 |
+| 18:00 | Previsão da noite | 2 |
 
-All schedule times and channel indexes are configurable.
+Os horários e índices dos canais podem ser alterados diretamente na configuração do scheduler.
 
-## Project Structure
+## Estrutura do projeto
 
 ```text
 meshtastic-inmet-gateway/
@@ -109,37 +110,37 @@ meshtastic-inmet-gateway/
 └── README.md
 ```
 
-### Components
+### Componentes
 
 #### `api-inmet-alert-v1.py`
 
-Retrieves active INMET alerts, identifies the configured municipality, filters applicable alerts, and separates the API fields into smaller messages.
+Consulta os alertas ativos do INMET, identifica o município configurado, filtra os alertas aplicáveis e separa os campos da API em mensagens menores.
 
-Meteorological content returned by INMET is not rewritten or interpreted by the gateway.
+O conteúdo meteorológico retornado pelo INMET não é reescrito ou reinterpretado pelo gateway.
 
 #### `api-inmet-weatherforecast-v1.py`
 
-Retrieves the INMET forecast for the configured municipality and generates independent bulletins for the morning, afternoon, and night periods.
+Consulta a previsão do INMET para o município configurado e gera boletins independentes para os períodos da manhã, tarde e noite.
 
 #### `meshtastic-scheduler.py`
 
-Coordinates the gateway operation, including schedule management, bulletin retrieval, message transmission, retry handling, and Meshtastic channel selection.
+Coordena a operação do gateway, incluindo o agendamento, obtenção dos boletins, transmissão das mensagens, tratamento de tentativas e seleção dos canais Meshtastic.
 
 #### `meshtastic_sim.py`
 
-Provides a lightweight Meshtastic interface simulator for development and testing without physical radio hardware.
+Fornece uma interface Meshtastic simulada para desenvolvimento e testes sem a presença do hardware físico.
 
-## Configuration
+## Configuração
 
-The municipality is selected through its IBGE code:
+O município é selecionado por meio do código IBGE:
 
 ```python
 MUNICIPIO_IBGE = "3524105"
 ```
 
-The code `3524105` corresponds to Ituverava, São Paulo.
+O código `3524105` corresponde a Ituverava, São Paulo.
 
-Scheduler configuration:
+A configuração dos horários e canais do scheduler é feita diretamente no arquivo:
 
 ```python
 HORARIO_ALERTAS = "05:00"
@@ -152,42 +153,42 @@ CANAL_ALERTAS = 1
 CANAL_PREVISAO = 2
 ```
 
-Transmission parameters are also configurable in the scheduler.
+Os parâmetros de transmissão também podem ser ajustados no scheduler.
 
-## Requirements
+## Requisitos
 
 - Python 3
-- Internet access for INMET API requests
-- Meshtastic Python library for hardware integration
+- Acesso à Internet para consultas às APIs do INMET
+- Biblioteca Python do Meshtastic para integração com o hardware
 
-Install the Meshtastic Python library with:
+Instalação da biblioteca Meshtastic:
 
 ```bash
 python3 -m pip install meshtastic
 ```
 
-The project is currently developed and tested without requiring physical Meshtastic hardware.
+Durante o desenvolvimento, o projeto pode ser executado e testado sem hardware Meshtastic físico.
 
-## Development and Testing
+## Desenvolvimento e testes
 
-### Meshtastic simulator
+### Simulador Meshtastic
 
-Run the simulator directly:
+Execute o simulador diretamente:
 
 ```bash
 python3 meshtastic_sim.py
 ```
 
-### Scheduler test mode
+### Modo de teste do scheduler
 
-The scheduler can execute a bulletin immediately without waiting for its scheduled time:
+O scheduler pode executar imediatamente um boletim específico, sem aguardar o horário programado:
 
 ```python
 MODO_TESTE = True
 BOLETIM_TESTE = "alertas"
 ```
 
-Available test bulletins:
+Boletins disponíveis para teste:
 
 ```text
 alertas
@@ -196,19 +197,19 @@ tarde
 noite
 ```
 
-For scheduled operation:
+Para operação agendada:
 
 ```python
 MODO_TESTE = False
 ```
 
-The scheduler then waits for the configured times.
+Nesse modo, o scheduler aguarda os horários configurados.
 
-## Message Format
+## Formato das mensagens
 
-Forecast bulletins are divided into independent messages to keep individual transmissions compact.
+Os boletins de previsão são divididos em mensagens independentes para manter as transmissões compactas.
 
-Example:
+Exemplo:
 
 ```text
 📆 30/09/2026 - INMET - ITUVERAVA - SP
@@ -227,58 +228,58 @@ Tendência máxima: Estável
 Tendência mínima: Estável
 ```
 
-Message size is calculated using UTF-8 encoding to support transmission analysis during development.
+O tamanho de cada mensagem é calculado utilizando codificação UTF-8 para auxiliar na análise das transmissões durante o desenvolvimento.
 
-## Design Principles
+## Princípios de projeto
 
-The project follows a deliberately simple and maintainable architecture:
+O projeto utiliza uma arquitetura deliberadamente simples e orientada à manutenção:
 
-1. **Use official INMET data** without unnecessary reinterpretation.
-2. **Separate responsibilities** between API integration, scheduling, and Meshtastic transport.
-3. **Keep configuration explicit** and easy to adapt.
-4. **Minimize dependencies** and operational complexity.
-5. **Support development without hardware** through simulation.
-6. **Keep the gateway reusable** for other municipalities and deployments.
+1. **Utilizar dados oficiais do INMET**, evitando interpretações desnecessárias.
+2. **Separar responsabilidades** entre integração com as APIs, agendamento e transporte Meshtastic.
+3. **Manter a configuração explícita** e fácil de adaptar.
+4. **Minimizar dependências** e complexidade operacional.
+5. **Permitir desenvolvimento sem hardware** por meio de simulação.
+6. **Manter o gateway reutilizável** para outros municípios e implantações.
 
-## Project Status
+## Status do projeto
 
-**Development in progress.**
+**Em desenvolvimento.**
 
-### Completed
+### Concluído
 
-- [x] INMET active alert API integration
-- [x] Municipality identification by IBGE code
-- [x] INMET forecast API integration
-- [x] Morning, afternoon, and night forecast bulletins
-- [x] Scheduled bulletin execution
-- [x] Separate Meshtastic channels
-- [x] Transmission retry handling
-- [x] Meshtastic simulator
-- [x] Simulated transmission tests
+- [x] Integração com a API de alertas do INMET
+- [x] Identificação do município por código IBGE
+- [x] Integração com a API de previsão do INMET
+- [x] Boletins para manhã, tarde e noite
+- [x] Execução agendada dos boletins
+- [x] Canais Meshtastic separados
+- [x] Sistema de tentativas de transmissão
+- [x] Simulador Meshtastic
+- [x] Testes de transmissão simulada
 
-### Next Steps
+### Próximas etapas
 
-- [ ] Configure the Heltec LoRa 32 V4
-- [ ] Configure Meshtastic on the hardware
-- [ ] Establish Wi-Fi communication with the gateway host
-- [ ] Replace the simulator with the real Meshtastic interface
-- [ ] Validate physical LoRa transmission
-- [ ] Deploy the gateway on the Linux hotspot
-- [ ] Configure automatic startup
-- [ ] Validate continuous unattended operation
+- [ ] Configurar a Heltec LoRa 32 V4
+- [ ] Configurar o Meshtastic no hardware
+- [ ] Estabelecer a comunicação Wi-Fi com o host do gateway
+- [ ] Substituir o simulador pela interface Meshtastic real
+- [ ] Validar a transmissão física via LoRa
+- [ ] Implantar o gateway no hotspot Linux
+- [ ] Configurar inicialização automática
+- [ ] Validar operação contínua e autônoma
 
-## Data Source
+## Fonte dos dados
 
-Meteorological data is provided by the **Instituto Nacional de Meteorologia (INMET)**.
+Os dados meteorológicos utilizados pelo projeto são fornecidos pelo **Instituto Nacional de Meteorologia (INMET)**.
 
-This project is independent and is not affiliated with INMET.
+O projeto é independente e não possui vínculo institucional com o INMET.
 
-## License
+## Licença
 
-This project is licensed under the [MIT License](LICENSE).
+Este projeto é distribuído sob a [Licença MIT](LICENSE).
 
-## Author
+## Autor
 
 **Marcelo Trindade - PU2OMT**
 
-Repository: [meshtastic-inmet-gateway](https://github.com/marcelositr/meshtastic-inmet-gateway)
+Repositório: [meshtastic-inmet-gateway](https://github.com/marcelositr/meshtastic-inmet-gateway)
