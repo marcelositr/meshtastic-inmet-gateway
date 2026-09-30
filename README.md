@@ -1,5 +1,3 @@
-Claro. Eu faria o README já pensando no estado atual e deixando espaço para a futura integração **Hotspot DMR → Wi-Fi → Heltec → Meshtastic**.
-
 # Meshtastic INMET Gateway
 
 Gateway de automação para [Meshtastic](https://meshtastic.org/) que consulta dados meteorológicos do [INMET](https://www.gov.br/inmet/) e transmite alertas e previsões pela rede LoRa.
