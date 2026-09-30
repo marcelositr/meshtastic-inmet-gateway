@@ -1,0 +1,179 @@
+#!/usr/bin/env python3
+
+import requests
+from datetime import datetime
+
+
+# =============================================================================
+# CONFIGURAÇÃO
+# =============================================================================
+
+API_URL = "https://apiprevmet3.inmet.gov.br/previsao/3524105"
+
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (X11; Linux x86_64; rv:142.0) "
+        "Gecko/20100101 Firefox/142.0"
+    ),
+    "Accept": "application/json,text/plain,*/*",
+}
+
+TIMEOUT = 30
+
+
+# =============================================================================
+# API
+# =============================================================================
+
+def buscar_previsao():
+    """Consulta a previsão municipal do INMET."""
+
+    resposta = requests.get(
+        API_URL,
+        headers=HEADERS,
+        timeout=TIMEOUT,
+    )
+
+    print(f"HTTP: {resposta.status_code}")
+
+    resposta.raise_for_status()
+
+    return resposta.json()
+
+
+# =============================================================================
+# FILTRO
+# =============================================================================
+
+def obter_previsao_hoje(dados):
+    """Retorna somente a previsão do dia atual."""
+
+    hoje = datetime.now().strftime("%d/%m/%Y")
+
+    municipio = dados.get("3524105", {})
+    previsao = municipio.get(hoje, {})
+
+    return hoje, previsao
+
+
+# =============================================================================
+# FORMATAÇÃO
+# =============================================================================
+
+def formatar_periodo(nome, dados):
+    """Formata a previsão de um período do dia."""
+
+    resumo = dados.get("resumo", "")
+
+    temp_min = dados.get("temp_min")
+    temp_max = dados.get("temp_max")
+
+    umidade_min = dados.get("umidade_min")
+    umidade_max = dados.get("umidade_max")
+
+    direcao_vento = dados.get("dir_vento", "")
+    intensidade_vento = dados.get("int_vento", "")
+
+    tendencia_max = dados.get("temp_max_tende", "")
+    tendencia_min = dados.get("temp_min_tende", "")
+
+    return "\n".join(
+        [
+            nome,
+            resumo,
+            f"Temperatura: {temp_min}°C a {temp_max}°C",
+            f"Umidade: {umidade_min}% a {umidade_max}%",
+            f"Vento: {direcao_vento}, {intensidade_vento}",
+            f"Tendência máxima: {tendencia_max}",
+            f"Tendência mínima: {tendencia_min}",
+        ]
+    )
+
+
+def criar_boletim(data, previsao):
+    """Cria as mensagens do boletim diário."""
+
+    if not previsao:
+        return "Nenhuma previsão encontrada para hoje."
+
+    referencia = previsao.get("manha", {})
+
+    nascer = referencia.get("nascer", "")
+    ocaso = referencia.get("ocaso", "")
+
+    mensagens = [
+        f"📆 {data} - INMET - ITUVERAVA",
+        f"Nascer: {nascer} | Ocaso: {ocaso}",
+    ]
+
+    periodos = (
+        ("☀️ MANHÃ", "manha"),
+        ("🌤️ TARDE", "tarde"),
+        ("🌙 NOITE", "noite"),
+    )
+
+    for nome, chave in periodos:
+        dados_periodo = previsao.get(chave)
+
+        if dados_periodo:
+            mensagens.append(
+                formatar_periodo(nome, dados_periodo)
+            )
+
+    return mensagens
+
+
+# =============================================================================
+# SAÍDA
+# =============================================================================
+
+def mostrar_mensagens(mensagens):
+    """Exibe as mensagens e seus respectivos tamanhos."""
+
+    total = len(mensagens)
+
+    for numero, mensagem in enumerate(mensagens, start=1):
+        tamanho_bytes = len(mensagem.encode("utf-8"))
+        tamanho_bits = tamanho_bytes * 8
+
+        print()
+        print("=" * 80)
+        print(f"MENSAGEM {numero}/{total}")
+        print("=" * 80)
+        print(mensagem)
+        print()
+        print(f"[{tamanho_bytes} bytes | {tamanho_bits} bits]")
+
+
+# =============================================================================
+# PROGRAMA PRINCIPAL
+# =============================================================================
+
+def main():
+    print("=" * 80)
+    print("INMET → ITUVERAVA")
+    print("PREVISÃO DO TEMPO")
+    print("=" * 80)
+
+    try:
+        dados = buscar_previsao()
+
+        data, previsao = obter_previsao_hoje(dados)
+
+        mensagens = criar_boletim(data, previsao)
+
+        if isinstance(mensagens, str):
+            print(f"\n{mensagens}")
+            return
+
+        mostrar_mensagens(mensagens)
+
+    except requests.RequestException as erro:
+        print(f"\nERRO HTTP: {erro}")
+
+    except Exception as erro:
+        print(f"\nERRO: {erro}")
+
+
+if __name__ == "__main__":
+    main()

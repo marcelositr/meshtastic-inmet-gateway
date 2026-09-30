@@ -1,0 +1,244 @@
+#!/usr/bin/env python3
+
+import requests
+from datetime import datetime
+
+
+# =============================================================================
+# CONFIGURAÇÃO
+# =============================================================================
+
+API_URL = "https://apiprevmet3.inmet.gov.br/avisos/ativos"
+
+# Código IBGE do município.
+MUNICIPIO_IBGE = "3524105"
+
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (X11; Linux x86_64; rv:142.0) "
+        "Gecko/20100101 Firefox/142.0"
+    ),
+    "Accept": "application/json,text/plain,*/*",
+}
+
+TIMEOUT = 30
+
+
+# =============================================================================
+# API
+# =============================================================================
+
+def buscar_alertas():
+    """Consulta a API do INMET e retorna os dados em JSON."""
+
+    resposta = requests.get(
+        API_URL,
+        headers=HEADERS,
+        timeout=TIMEOUT,
+    )
+
+    print(f"HTTP: {resposta.status_code}")
+
+    resposta.raise_for_status()
+
+    return resposta.json()
+
+
+# =============================================================================
+# MUNICÍPIO
+# =============================================================================
+
+def encontrar_municipio(municipios, codigo_ibge):
+    """Encontra o município pelo código IBGE."""
+
+    identificador = f"({codigo_ibge})"
+
+    for municipio in municipios.split(","):
+        municipio = municipio.strip()
+
+        if municipio.endswith(identificador):
+            return municipio
+
+    return None
+
+
+def obter_municipio(dados):
+    """Obtém o município usando o código IBGE."""
+
+    for aviso in dados.get("hoje", []):
+        municipios = aviso.get("municipios", "")
+
+        if not isinstance(municipios, str):
+            continue
+
+        municipio = encontrar_municipio(
+            municipios,
+            MUNICIPIO_IBGE,
+        )
+
+        if municipio:
+            return municipio
+
+    return None
+
+
+# =============================================================================
+# FILTRO
+# =============================================================================
+
+def filtrar_alertas(dados):
+    """
+    Retorna somente os alertas de hoje
+    que atingem o município configurado.
+    """
+
+    alertas = []
+
+    for aviso in dados.get("hoje", []):
+        if municipio_esta_no_alerta(aviso):
+            alertas.append(aviso)
+
+    return alertas
+
+
+def municipio_esta_no_alerta(aviso):
+    """Verifica se o alerta pertence ao município configurado."""
+
+    municipios = aviso.get("municipios", "")
+
+    if not isinstance(municipios, str):
+        return False
+
+    return encontrar_municipio(
+        municipios,
+        MUNICIPIO_IBGE,
+    ) is not None
+
+
+# =============================================================================
+# MENSAGENS
+# =============================================================================
+
+def criar_mensagens(alertas, municipio):
+    """
+    Converte os dados dos alertas em mensagens individuais.
+
+    O conteúdo recebido da API não é reescrito.
+    Apenas os campos são separados em mensagens menores.
+    """
+
+    mensagens = []
+
+    data = datetime.now().strftime("%d/%m/%Y")
+
+    nome_municipio = municipio.split(" (")[0]
+
+    mensagens.append(
+        f"📆 {data} - INMET - {nome_municipio.upper()}"
+    )
+
+    for aviso in alertas:
+
+        # Descrição do alerta + nível de severidade.
+        mensagens.append(
+            f"🚨 {aviso.get('descricao')}: "
+            f"{aviso.get('severidade')}"
+        )
+
+        # Cada risco da API vira uma mensagem.
+        riscos = aviso.get("riscos", [])
+
+        if isinstance(riscos, list):
+            for risco in riscos:
+                mensagens.append(f"Riscos: {risco}")
+
+        elif riscos:
+            mensagens.append(f"Riscos: {riscos}")
+
+        # Cada instrução da API vira uma mensagem.
+        instrucoes = aviso.get("instrucoes", [])
+
+        if isinstance(instrucoes, list):
+            for instrucao in instrucoes:
+                mensagens.append(instrucao)
+
+        elif instrucoes:
+            mensagens.append(instrucoes)
+
+    return mensagens
+
+
+# =============================================================================
+# SAÍDA
+# =============================================================================
+
+def mostrar_mensagem(numero, total, texto):
+    """Exibe uma mensagem e seu tamanho em bytes e bits."""
+
+    tamanho_bytes = len(texto.encode("utf-8"))
+    tamanho_bits = tamanho_bytes * 8
+
+    print()
+    print("=" * 80)
+    print(f"MENSAGEM {numero}/{total}")
+    print("=" * 80)
+    print(texto)
+
+    print()
+    print(f"[{tamanho_bytes} bytes | {tamanho_bits} bits]")
+
+
+def mostrar_resumo(alertas):
+    """Exibe o resumo da consulta."""
+
+    print(f"\nAlertas encontrados: {len(alertas)}")
+
+
+# =============================================================================
+# PROGRAMA PRINCIPAL
+# =============================================================================
+
+def main():
+    print("=" * 80)
+    print("INMET → ALERTAS DO DIA")
+    print("=" * 80)
+
+    try:
+        dados = buscar_alertas()
+
+        municipio = obter_municipio(dados)
+
+        if not municipio:
+            print(
+                f"\nMunicípio com código IBGE "
+                f"{MUNICIPIO_IBGE} não encontrado."
+            )
+            return
+
+        print(f"Município: {municipio}")
+
+        alertas = filtrar_alertas(dados)
+
+        mostrar_resumo(alertas)
+
+        mensagens = criar_mensagens(
+            alertas,
+            municipio,
+        )
+
+        for numero, mensagem in enumerate(mensagens, start=1):
+            mostrar_mensagem(
+                numero,
+                len(mensagens),
+                mensagem,
+            )
+
+    except requests.RequestException as erro:
+        print(f"\nERRO HTTP: {erro}")
+
+    except Exception as erro:
+        print(f"\nERRO: {erro}")
+
+
+if __name__ == "__main__":
+    main()
